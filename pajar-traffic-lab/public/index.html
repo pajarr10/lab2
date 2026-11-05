@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090d17">
+  <meta name="description" content="PAJAR Traffic Lab — live request monitoring for a Cloudflare Worker.">
+  <title>PAJAR TRAFFIC LAB</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="PAJAR Traffic Lab home">
+        <span class="brand-mark">P</span>
+        <span class="brand-copy"><strong>PAJAR <b>TRAFFIC LAB</b></strong><small>EDGE REQUEST MONITOR</small></span>
+      </a>
+      <div class="top-right">
+        <span class="live-pill"><i></i><span id="connection">CONNECTING</span></span>
+        <span class="clock" id="clock">--:--:--</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-line"></span> WORKER OBSERVABILITY</div>
+          <h1>Traffic <span>Overview</span></h1>
+          <p>pantau request yang masuk ke worker ini secara langsung.</p>
+        </div>
+        <div class="target-chip"><span class="target-dot"></span><span><small>MONITORING TARGET</small><strong id="hostname">this-worker</strong><a class="target-link" href="/target" target="_blank" rel="noopener">/target receiver ↗</a></span></div>
+      </section>
+
+      <section class="metric-grid" aria-label="Traffic totals">
+        <article class="metric-card metric-primary">
+          <div class="metric-top"><span>TOTAL REQUESTS</span><span class="metric-icon">↗</span></div>
+          <strong class="metric-value" id="totalRequests">0</strong>
+          <span class="metric-foot">lifetime requests</span>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span>LIVE RPS</span><span class="metric-icon">⌁</span></div>
+          <strong class="metric-value" id="currentRps">0.0</strong>
+          <span class="metric-foot">average · last 5 seconds</span>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span>PEAK RPS</span><span class="metric-icon">⚡</span></div>
+          <strong class="metric-value" id="peakRps">0</strong>
+          <span class="metric-foot">highest observed second</span>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span>SUCCESS RATE</span><span class="metric-icon">✓</span></div>
+          <strong class="metric-value" id="successRate">0%</strong>
+          <span class="metric-foot"><span id="successCount">0</span> successful responses</span>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span>FAILED</span><span class="metric-icon">!</span></div>
+          <strong class="metric-value" id="failedCount">0</strong>
+          <span class="metric-foot">HTTP 4xx / 5xx / other</span>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span>AVG RESPONSE</span><span class="metric-icon">◷</span></div>
+          <strong class="metric-value" id="avgResponse">0 <small>ms</small></strong>
+          <span class="metric-foot">time at Worker asset fetch</span>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel chart-panel">
+          <div class="panel-head">
+            <div><span class="panel-kicker">LIVE ACTIVITY</span><h2>Request traffic</h2></div>
+            <span class="window-label"><i></i> LAST 60 SECONDS</span>
+          </div>
+          <div class="chart-wrap"><canvas id="trafficChart" aria-label="Requests per second for the last 60 seconds"></canvas></div>
+          <div class="chart-foot"><span><i class="legend-dot"></i> requests / second</span><span id="lastUpdated">waiting for data</span></div>
+        </article>
+
+        <article class="panel breakdown-panel">
+          <div class="panel-head"><div><span class="panel-kicker">RESPONSE DISTRIBUTION</span><h2>HTTP status</h2></div></div>
+          <div class="status-list" id="statusList">
+            <div class="empty-state">belum ada request</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="content-grid lower-grid">
+        <article class="panel log-panel">
+          <div class="panel-head">
+            <div><span class="panel-kicker">INCOMING ACTIVITY</span><h2>Recent requests</h2></div>
+            <span class="count-label" id="logCount">0 events</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>TIME</th><th>METHOD</th><th>PATH</th><th>STATUS</th><th>LATENCY</th></tr></thead>
+              <tbody id="requestRows"><tr><td colspan="5" class="empty-state">menunggu request masuk…</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel side-panel">
+          <div class="panel-head"><div><span class="panel-kicker">RUNTIME DETAILS</span><h2>Worker status</h2></div><span class="healthy-tag">ACTIVE</span></div>
+          <div class="runtime-list">
+            <div><span>Platform</span><strong>Cloudflare Workers</strong></div>
+            <div><span>Persistent storage</span><strong>SQLite · Durable Object</strong></div>
+            <div><span>First request</span><strong id="firstSeen">—</strong></div>
+            <div><span>Last request</span><strong id="lastSeen">—</strong></div>
+            <div><span>Data received*</span><strong id="bytesIn">0 B</strong></div>
+            <div><span>Data sent*</span><strong id="bytesOut">0 B</strong></div>
+          </div>
+          <div class="method-block"><span class="panel-kicker">HTTP METHODS</span><div id="methodList" class="method-list"></div></div>
+          <p class="footnote">* Ukuran body berdasarkan header Content-Length; bukan total byte jaringan.</p>
+        </article>
+      </section>
+
+      <section class="notice">
+        <span class="notice-icon">i</span>
+        <p>monitor ini hanya mencatat request yang berhasil mencapai Worker. request yang diblokir atau ditantang di edge Cloudflare tidak terlihat di sini. grafik 60 detik dan log terbaru bersifat live; total statistik tersimpan di SQLite.</p>
+      </section>
+    </main>
+
+    <footer><span>PAJAR TRAFFIC LAB</span><span>PASSIVE MONITOR · NO OUTBOUND TESTER</span></footer>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
